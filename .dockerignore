@@ -1,0 +1,15 @@
+__pycache__
+*.pyc
+.git
+.ipynb_checkpoints
+venv/
+env/
+.pytest_cache
+.coverage
+*.egg-info
+.DS_Store
+mlruns/
+data/train/*
+data/test/*
+data/valid/*
+notebooks/

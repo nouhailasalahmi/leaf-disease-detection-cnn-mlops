@@ -1,0 +1,26 @@
+# Configuration du projet
+
+# Chemins des données
+data:
+  train_dir: "data/train"
+  valid_dir: "data/valid"
+  test_dir: "data/test"
+  
+# Paramètres du modèle
+model:
+  image_size: [224, 224]
+  batch_size: 32
+  epochs: 50
+  learning_rate: 0.001
+  
+# Classes de maladies (à adapter selon vos données)
+classes:
+  - healthy
+  - bacterial_spot
+  - early_blight
+  - late_blight
+  
+# MLflow
+mlflow:
+  experiment_name: "leaf_disease_classification"
+  tracking_uri: "http://localhost:5000"

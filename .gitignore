@@ -1,0 +1,59 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+build/
+dist/
+*.egg-info/
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+*.ipynb_checkpoints/
+
+# Environment
+.env
+.venv
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+
+# Models
+models/*.h5
+models/*.keras
+models/*.pb
+models/*.pth
+models/*.pkl
+!models/.gitkeep
+
+# Data
+data/train/*
+data/test/*
+data/valid/*
+data/raw/*
+data/processed/*
+!data/.gitkeep
+
+# Logs
+logs/*.log
+!logs/.gitkeep
+
+# MLflow
+mlruns/
+mlartifacts/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
