@@ -1,0 +1,33 @@
+name: Test Simple
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test-basic:
+    name: Test Basique
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+    
+    - name: Test de structure
+      run: |
+        echo "============================================"
+        echo "TEST DE STRUCTURE DU PROJET"
+        echo "============================================"
+        echo "Vérification des dossiers..."
+        ls -la
+        echo ""
+        echo "Vérification de src/..."
+        ls -la src/
+        echo ""
+        echo "Vérification de .github/workflows/..."
+        ls -la .github/workflows/
+        echo ""
+        echo "✅ Structure OK !"
+        echo "============================================"
