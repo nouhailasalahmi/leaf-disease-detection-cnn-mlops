@@ -18,7 +18,7 @@ Ce projet utilise le Deep Learning (CNN) pour classifier les maladies des feuill
 
 ```
 
-leaf\_disease\_classification/
+leaf\\\_disease\\\_classification/
 
 ├── .github/workflows/      # CI/CD avec GitHub Actions
 
@@ -43,8 +43,4 @@ leaf\_disease\_classification/
 └── logs/                   # Logs
 
 ```
-
-
-
-
 
