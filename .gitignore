@@ -56,4 +56,10 @@ desktop.ini
 # Testing
 .coverage
 htmlcov/
-.pytest_cache/
+.pytest_cache/venv/ 
+# ignore dataset images
+data/
+
+# ignore model
+deployment/model/*.h5
+
