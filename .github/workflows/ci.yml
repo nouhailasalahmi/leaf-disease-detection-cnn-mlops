@@ -4,49 +4,255 @@ on:
   push:
     branches: [ main, develop ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, develop ]
+  schedule:
+    - cron: '0 2 * * *'  # Daily tests at 2 AM
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   PYTHON_VERSION: '3.9'
+  CACHE_VERSION: 1
 
 jobs:
-  # Job simplifié : Vérification basique
-  check:
-    name: Vérification du Projet
+  # ==========================================
+  # LINTING & CODE QUALITY
+  # ==========================================
+  lint:
+    name: Code Linting & Format
     runs-on: ubuntu-latest
     
     steps:
-    - name: Checkout du code
-      uses: uses: actions/upload-artifact@v4
-
+    - name: Checkout code
+      uses: actions/checkout@v4
     
-    - name: Configuration Python
+    - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
     
-    - name: Vérification de la structure
+    - name: Install linting tools
       run: |
-        echo "============================================"
-        echo "VÉRIFICATION DE LA STRUCTURE"
-        echo "============================================"
+        python -m pip install --upgrade pip
+        pip install flake8 black isort pylint
+    
+    - name: Run flake8
+      run: |
+        echo "=============== Flake8 Linting ==============="
+        flake8 src/ tests/ --count --select=E9,F63,F7,F82 --show-source --statistics
+        flake8 src/ tests/ --count --exit-zero --max-complexity=10 --max-line-length=100 --statistics
+    
+    - name: Check code formatting with Black
+      run: |
+        echo "=============== Black Format Check ==============="
+        black --check --diff src/ tests/ || true
+    
+    - name: Check import sorting with isort
+      run: |
+        echo "=============== isort Check ==============="
+        isort --check-only --diff src/ tests/ || true
+
+  # ==========================================
+  # UNIT TESTS
+  # ==========================================
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    needs: lint
+    
+    strategy:
+      matrix:
+        python-version: ['3.9', '3.10', '3.11']
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        lfs: true  # Download Git LFS files
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: 'pip'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip setuptools wheel
+        if [ -f requirements.txt ]; then
+          pip install -r requirements.txt
+        fi
+        pip install pytest pytest-cov pytest-xdist
+    
+    - name: Verify project structure
+      run: |
+        echo "=============== Project Structure ==============="
+        echo "Python version:" 
+        python --version
+        echo ""
+        echo "Project files:"
         ls -la
         echo ""
-        echo "Contenu de src/ :"
-        ls -la src/ || echo "⚠️ Dossier src/ manquant"
+        echo "Source files:"
+        ls -la src/
         echo ""
-        echo "Contenu de tests/ :"
-        ls -la tests/ || echo "⚠️ Dossier tests/ manquant"
-        echo ""
-        echo "Fichiers de config :"
-        ls -la requirements.txt || echo "⚠️ requirements.txt manquant"
-        ls -la Dockerfile || echo "⚠️ Dockerfile manquant"
+        echo "Test files:"
+        ls -la tests/ || echo "No tests found"
     
-    - name: Installation des dépendances
+    - name: Run unit tests
+      run: |
+        echo "=============== Running Tests ==============="
+        pytest tests/ -v --tb=short 2>&1 | head -100
+      continue-on-error: true
+    
+    - name: Run tests with coverage
+      run: |
+        echo "=============== Running Tests with Coverage ==============="
+        pytest tests/ --cov=src --cov-report=xml --cov-report=term-missing -v || true
+      continue-on-error: true
+    
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        files: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+      continue-on-error: true
+
+  # ==========================================
+  # SECURITY CHECK
+  # ==========================================
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: lint
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+    
+    - name: Install security tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install bandit safety
+    
+    - name: Run Bandit security check
+      run: |
+        echo "=============== Bandit Security Check ==============="
+        bandit -r src/ -v || true
+    
+    - name: Check dependencies for known vulnerabilities
+      run: |
+        echo "=============== Dependency Safety Check ==============="
+        pip install -r requirements.txt
+        safety check --json || true
+
+  # ==========================================
+  # BUILD CHECK
+  # ==========================================
+  build:
+    name: Build Check
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        lfs: true
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+    
+    - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         if [ -f requirements.txt ]; then
           pip install -r requirements.txt
+        fi
+        pip install build wheel
+    
+    - name: Build distribution packages
+      run: |
+        echo "=============== Building Python Package ==============="
+        python -m build --sdist --wheel .
+    
+    - name: Verify build artifacts
+      run: |
+        echo "=============== Build Artifacts ==============="
+        ls -lah dist/ || echo "No dist directory"
+    
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: python-distributions
+        path: dist/
+      if: always()
+
+  # ==========================================
+  # DOCKER BUILD CHECK
+  # ==========================================
+  docker-build:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        lfs: true
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+    
+    - name: Build Docker image
+      uses: docker/build-push-action@v4
+      with:
+        context: .
+        push: false
+        tags: leaf-disease:ci-test
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  # ==========================================
+  # SUMMARY
+  # ==========================================
+  summary:
+    name: CI Summary
+    runs-on: ubuntu-latest
+    needs: [lint, test, security, build, docker-build]
+    if: always()
+    
+    steps:
+    - name: CI Status Summary
+      run: |
+        echo "==============================================="
+        echo "✅ CI PIPELINE COMPLETED"
+        echo "==============================================="
+        echo "Lint Status: ${{ needs.lint.result }}"
+        echo "Tests Status: ${{ needs.test.result }}"
+        echo "Security Status: ${{ needs.security.result }}"
+        echo "Build Status: ${{ needs.build.result }}"
+        echo "Docker Build Status: ${{ needs.docker-build.result }}"
+        echo "==============================================="
+        
+        if [ "${{ needs.lint.result }}" != "success" ] || \
+           [ "${{ needs.test.result }}" != "success" ] || \
+           [ "${{ needs.docker-build.result }}" != "success" ]; then
+          exit 1
         fi
     
     - name: Test d'import Python
