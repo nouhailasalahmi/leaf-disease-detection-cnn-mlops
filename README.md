@@ -16,9 +16,6 @@ Ce projet utilise le Deep Learning (CNN) pour classifier les maladies des feuill
 
 
 
-├── config/                 # Configuration
 
-└── logs/                   # Logs
 
-```
 
